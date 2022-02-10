@@ -11,6 +11,7 @@ terraform {
   }
 }
 
+# Authentication
 provider "tls" {
   // no config needed
 }
@@ -35,18 +36,10 @@ provider "google" {
 
 data "google_client_openid_userinfo" "me" {}
 
+# Networking
 resource "google_compute_network" "scrape2h_network" {
   name = "scrape2h-network"
 }
-
-/*
-resource "google_compute_subnetwork" "scrape2h_subnet" {
-  name          = "scrape2h-subnet"
-  ip_cidr_range = "10.132.0.0/16"
-  region        = "europe-west1"
-  network       = google_compute_network.scrape2h_network.id
-}
-*/
 
 resource "google_compute_address" "gp_machine_static_external_ip" {
   name         = "gp-machine-static-external-ip"
@@ -61,7 +54,6 @@ resource "google_compute_address" "gp_machine_static_internal_ip" {
   region       = "europe-west1"
 }
 
-
 resource "google_compute_firewall" "allow_ssh" {
   name          = "allow-ssh"
   network       = google_compute_network.scrape2h_network.name
@@ -74,6 +66,7 @@ resource "google_compute_firewall" "allow_ssh" {
   }
 }
 
+# Compute Engine
 resource "google_compute_instance" "gp_machine" {
   name         = "gp-machine"
   machine_type = "e2-standard-2"
@@ -107,6 +100,48 @@ resource "google_compute_instance" "gp_machine" {
   }
 }
 
+
+# Cloud SQL
+resource "google_sql_database_instance" "gp_database" {
+  name             = "gp-database"
+  database_version = "POSTGRES_13"
+  region           = "europe-west1"
+
+  settings {
+    # Second-generation instance tiers are based on the machine
+    # type. See argument reference below.
+    tier = "db-custom-4-15360" # You can't use the new machine types. Use custom: https://cloud.google.com/sql/docs/mysql/create-instance#machine-types
+
+    ip_configuration {
+      ipv4_enabled = true
+      authorized_networks {
+          name = google_compute_instance.gp_machine.name
+          value = google_compute_address.gp_machine_static_external_ip.address
+      }
+    }
+  }
+}
+
+resource "google_sql_user" "u_airflow" {
+  name     = "u-airflow"
+  instance = google_sql_database_instance.gp_database.name
+  password = "aiRfl0wpAssW0rd!&#"
+}
+
+
 output "gp_machine_static_external_ip" {
   value = google_compute_address.gp_machine_static_external_ip.address
+}
+
+output "gp_database_ip" {
+  value = google_sql_database_instance.gp_database.ip_address.0.ip_address
+}
+
+output "gp_database_user" {
+  value = google_sql_user.u_airflow.name
+}
+
+output "gp_database_password" {
+  sensitive = true
+  value = google_sql_user.u_airflow.password
 }
