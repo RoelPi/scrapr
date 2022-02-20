@@ -48,7 +48,7 @@ resource "google_compute_address" "gp_machine_static_external_ip" {
 }
 
 resource "google_compute_address" "gp_machine_static_internal_ip" {
-  name         = "gp-machine-static-internal-ip"
+  name = "gp-machine-static-internal-ip"
   /*subnetwork   = google_compute_subnetwork.scrape2h_subnet.id*/
   address_type = "INTERNAL"
   region       = "europe-west1"
@@ -100,23 +100,33 @@ resource "google_compute_instance" "gp_machine" {
   }
 }
 
+/*
+resource "random_string" "random_suffix" {
+  length  = 3
+  special = false
+  lower   = true
+  upper   = false
+  keepers = {
+    instance_ip = "${google_compute_address.gp_machine_static_external_ip.address}"
+  }
+}
 
 # Cloud SQL
 resource "google_sql_database_instance" "gp_database" {
-  name             = "gp-database"
+  name             = "gp-database-${random_string.random_suffix.result}"
   database_version = "POSTGRES_13"
   region           = "europe-west1"
 
   settings {
     # Second-generation instance tiers are based on the machine
     # type. See argument reference below.
-    tier = "db-custom-4-15360" # You can't use the new machine types. Use custom: https://cloud.google.com/sql/docs/mysql/create-instance#machine-types
+    tier = "db-custom-1-3840" # You can't use the new machine types. Use custom: https://cloud.google.com/sql/docs/mysql/create-instance#machine-types
 
     ip_configuration {
       ipv4_enabled = true
       authorized_networks {
-          name = google_compute_instance.gp_machine.name
-          value = google_compute_address.gp_machine_static_external_ip.address
+        name  = google_compute_instance.gp_machine.name
+        value = google_compute_address.gp_machine_static_external_ip.address
       }
     }
   }
@@ -128,13 +138,18 @@ resource "google_sql_user" "u_airflow" {
   password = "aiRfl0wpAssW0rd!&#"
 }
 
-
+*/
 output "gp_machine_static_external_ip" {
   value = google_compute_address.gp_machine_static_external_ip.address
 }
 
+/*
 output "gp_database_ip" {
   value = google_sql_database_instance.gp_database.ip_address.0.ip_address
+}
+
+output "gp_database_name" {
+  value = google_sql_database_instance.gp_database.name
 }
 
 output "gp_database_user" {
@@ -143,5 +158,6 @@ output "gp_database_user" {
 
 output "gp_database_password" {
   sensitive = true
-  value = google_sql_user.u_airflow.password
+  value     = google_sql_user.u_airflow.password
 }
+*/

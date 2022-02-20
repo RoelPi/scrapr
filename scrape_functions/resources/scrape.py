@@ -2,6 +2,7 @@ import requests
 import validators
 import requests
 from bs4 import BeautifulSoup
+import datetime
 
 class Listing:
     
@@ -14,6 +15,9 @@ class Listing:
 
     def __repr__(self):
         return f'Listing at {self.url}'
+
+    def __check_status(self):
+        return False if len(self.page.select('.ExpiredListingContent-badge')) > 0 else True
 
     def __assert_get_text(self, selector, n, property_name, soft = False):
         if soft:
@@ -42,9 +46,9 @@ class Listing:
         if price == 'N.o.t.k.':
             price = None
         else:
-            price = price.replace('€', '').replace(',','')
+            price = price.replace('€', '').replace(',','.')
             price = price.strip()
-            price = int(price)
+            price = float(price)
         return price
     
     def __parse_list_date(self):  
@@ -80,24 +84,44 @@ class Listing:
             method_send = None
         send_price = self.__assert_get_text('.ShippingInformation-shipping', 0, 'shipping price', soft = True) 
         send_price = None if send_price == '' else send_price
+        send_price = float(send_price.replace('€\xa0','').replace(',','.')) if send_price is not None else send_price
         return method_pickup, method_send, send_price
     
-    def scrape(self):
-        self.title = self.__parse_title()
-        self.price = self.__parse_price()
-        self.n_views, self.n_hearts = self.__parse_stats()
-        self.list_date = self.__parse_list_date()
-        self.pickup, self.send, self.send_price = self.__parse_delivery_info()
-        print(self.pickup)
-        print(self.send)
-        print(self.send_price)
-        pass
+    def __scrape(self):
+        if self.__check_status():
+            print('Listing is active. Scraping.')
+            self.title = self.__parse_title()
+            self.price = self.__parse_price()
+            self.n_views, self.n_hearts = self.__parse_stats()
+            self.list_date = self.__parse_list_date()
+            self.pickup, self.send, self.send_price = self.__parse_delivery_info()
+            self.is_active = True
+        else:
+            self.title = self.price = self.n_views = self.n_hearts = self.list_date = self.pickup = self.send = self.send_price = None
+            self.is_active = False
+            print('Listing is inactive. Not scraping.')    
+    pass
+
+    def get_dict(self):
+        self.__scrape()
+        return {
+            'scrape_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'title': self.title,
+            'price': self.price,
+            'n_views': self.n_views,
+            'n_hearts': self.n_hearts,
+            'list_date': self.list_date,
+            'pickup': self.pickup,
+            'send': self.send,
+            'send_price': self.send_price,
+            'is_active': self.is_active
+        }
 
 if __name__ == "__main__":
     url = 'https://www.2dehands.be/v/telecommunicatie/mobiele-telefoons-apple-iphone/m1797547157-iphone-12-pro-128gb'
     p = Listing(url)
-    p.scrape()
+    print(p.get_dict())
 
-    url = 'https://www.2dehands.be/v/telecommunicatie/mobiele-telefoons-apple-iphone/m1612339672-telefoons'
+    url = 'https://www.2dehands.be/v/telecommunicatie/mobiele-telefoons-apple-iphone/a75770653-apple-iphone-11-red'
     p = Listing(url)
-    p.scrape()
+    print(p.get_dict())
